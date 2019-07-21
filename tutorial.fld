@@ -1,0 +1,148 @@
+# an attempt to find a useful music notation language
+
+# comments begin with '#' and extend to the end of line
+
+# sfload <slot> <path>
+#
+# load a soundfont into a slot
+#
+# <path> may be an absolute or relative path
+#
+# if relative, it will be searched in the current directory and
+# in the directories listed in the SFPATH array
+sfload 0 "FluidR3_GM.sf2"
+
+# channel <channel>
+#
+# switch to the specified channel
+channel 0
+
+# sf <slot>
+#
+# switch to the specified soundfont on the current channel
+sf 0
+
+# bank <bank>
+#
+# switch to the specified bank on the current channel
+bank 0
+
+# program <program>
+#
+# select the specified program on the current channel
+program 0
+
+# bpm <bpm>
+#
+# set tempo in beats per minute
+bpm 120
+
+# dur <duration>
+#
+# set duration of played notes (in beats)
+#
+# the duration of a note is the time elapsed between a note-on
+# and the corresponding note-off
+#
+# if duration is set to zero, only note-on events are sent
+dur 1
+~1
+
+# delta <duration>
+#
+# how much to wait between two successive notes (in beats)
+delta 1/4
+>1/4
+
+# .
+#
+# wait for the amount of time previously set with `delta`
+.
+... # wait for 3 deltas
+
+# wait <duration>
+#
+# wait for the given amount of beats
+wait 1
+
+# root <notedesc>
+#
+# set the root note
+root c4
+
+# <notedesc>
+#
+# play the note(s) described by <notedesc> on the current channel
+c4
+c4' # one semitone above c4
+c4'' # two semitones above c4
+c4` # one semitone below c4
+c4`` # two semitones below c4
+c4,e4,g4 # a chord
+
+# degrees
+#
+# numeric note descriptors signify the number of scale degrees
+degrees # (default)
+
+# semitones
+#
+# numeric note descriptors signify the number of semitone steps
+semitones
+
+# the c4,e4,g4 chord may be also expressed
+# as a list of distances from the root note
+#
+# either in semitones
+semitones 0,4,7
+#
+# or degrees
+degrees 0,2,4
+
+# scale <steps>
+#
+# specify the scale as a series of semitone steps
+scale 2212221 # major scale (default)
+scale 2122122 # minor scale
+
+# playing several notes in succession
+degrees
+-2 0 2 . 0,2,4 # three separate notes, a rest, then a chord
+
+# vel <velocity>
+#
+# set note velocity
+vel 96
+vel 5- # set to 5 less than previous value
+v5-
+
+# when we play notes, we use a scale, a root note, a shift and a degree
+#
+# note = root + scale[shift + degree]
+
+# shift <value>
+#
+# shift every scale degree in note descriptors by <value>
+shift -5
+
+# define a block of commands for later execution
+let $scale {
+  0 1 2 3 4 5 6
+}
+
+# play a previously defined block
+$scale
+
+# schedule a block to be played in the background
+sched {
+  ~1 >1/4
+  sched $scale
+  sched { . $scale }
+  # wait until all blocks scheduled by the current block finish
+  join
+}
+
+# rep <count> <block>
+#
+# repeat a block the given number of times
+rep 4 { 0 2 4 5 3 -2 }
