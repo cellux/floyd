@@ -49,7 +49,7 @@
 (defun floyd-find-top-definition ()
   (let (start end)
     (save-mark-and-excursion
-      (while (beginning-of-defun)
+      (when (beginning-of-defun)
         (setq start (point)))
       (when start
         (goto-char start)
@@ -106,6 +106,6 @@
   prog-mode floyd-mode-name
   "Major mode for editing Floyd scripts."
   (setq-local font-lock-defaults '(floyd-keywords))
-  (setq-local defun-prompt-regexp "let\\s-+\\(\\$\\w+\\)\\s-+"))
+  (setq-local defun-prompt-regexp "^let\\s-+\\(\\$\\w+\\)\\s-+"))
 
 (provide 'floyd)
