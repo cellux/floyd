@@ -161,6 +161,15 @@ function Scale:at(degree)
    return self.offsets[index+1] + octave_shift * 12
 end
 
+local function peek_char(s)
+   local rv = s:peek(1)
+   return rv
+end
+
+local function eat_char(s)
+   local ch = s:read_char()
+end
+
 local function eat_whitespace(s)
    s:match("^\\s+")
 end
@@ -265,10 +274,10 @@ local function make_number_adjuster(name, min, max)
    end
    return function(s)
       local value = parse_number(s)
-      local next_char = s:peek(1)
+      local next_char = peek_char(s)
       local rel = next_char == '+' or next_char == '-'
       if rel then
-         s:read_char()
+         eat_char(s)
          if next_char == '-' then
             value = -value
          end
@@ -371,7 +380,7 @@ parse_note = function(s)
       local c4 = 60
       local octave = tonumber(note_str:sub(2,2))
       note_offset = note_offset + (octave-4) * 12
-      local next_char = s:peek(1)
+      local next_char = peek_char(s)
       while true do
          if next_char == "'" then
             note_offset = note_offset + 1
@@ -380,8 +389,8 @@ parse_note = function(s)
          else
             break
          end
-         s:read_char()
-         next_char = s:peek(1)
+         eat_char(s)
+         next_char = peek_char(s)
       end
       return AbsNote(c4 + note_offset)
    else
@@ -407,8 +416,8 @@ end
 parse_cluster = function(s)
    local notes = {}
    table.insert(notes, parse_note(s))
-   while s:peek(1) == ',' do
-      s:read_char()
+   while peek_char(s) == ',' do
+      eat_char(s)
       table.insert(notes, parse_note(s))
    end
    return function(env)
@@ -452,8 +461,8 @@ end
 
 parse_rests = function(s)
    local count = 0
-   while s:peek(1) == '.' do
-      s:read_char()
+   while peek_char(s) == '.' do
+      eat_char(s)
       count = count + 1
    end
    return function(env)
@@ -477,10 +486,10 @@ local block_end_regex = re.compile("^\\s*\\}")
 
 parse_block = function(s)
    eat_whitespace(s)
-   local next_char = s:peek(1)
+   local next_char = peek_char(s)
    if next_char == '{' then
       -- block definition
-      s:read_char()
+      eat_char(s)
       local commands = {}
       while not s:match(block_end_regex) do
          table.insert(commands, parse_command(s))
@@ -564,7 +573,13 @@ command_parsers['join'] = function(s)
    end
 end
 
-local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|dur|~|delta|>|wait|root|scale|semitones|degrees|vel|v|shift|let|rep|sched|join)(?=(\\W|\\d))")
+command_parsers['quit'] = function(s)
+   return function(env)
+      env.running = false
+   end
+end
+
+local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|dur|~|delta|>|wait|root|scale|semitones|degrees|vel|v|shift|let|rep|sched|join|quit)(?=(\\W|\\d))")
 
 parse_command = function(s)
    eat_whitespace(s)
@@ -579,7 +594,7 @@ parse_command = function(s)
       s:unread(m[0])
       return parse_cluster(s)
    end
-   local next_char = s:peek(1)
+   local next_char = peek_char(s)
    if next_char == '.' then
       return parse_rests(s)
    end
@@ -638,9 +653,12 @@ function M.main()
       end
    else
       local stdin_is_tty = ffi.C.isatty(0) == 1
-      local stdio = stream.duplex(fs.fd(0), fs.fd(1))
+      local stdin = stream(fs.fd(0))
+      local stdout = stream(fs.fd(1))
+      local stdio = stream.duplex(stdin, stdout)
       stdio:write("===[ Floyd v1.0.0 ]===\n")
-      while not stdio:eof() do
+      env.running = true
+      while env.running and not stdio:eof() do
          if stdin_is_tty then
             stdio:write("> ")
          end
