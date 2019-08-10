@@ -338,7 +338,7 @@ command_parsers['degrees'] = function(s)
    end
 end
 
-local note_regex = re.compile("^(-?\\d+|[cdefgab][0-9])")
+local note_regex = re.compile("^(-?\\d+|[cdefgab][0-9])(['`_^]*)")
 
 local note_offsets = {
    c = 0,
@@ -350,20 +350,20 @@ local note_offsets = {
    b = 11,
 }
 
-local function AbsNote(value)
+local function AbsNote(value, add)
    return function(env)
-      return value, env.vel
+      return value + add, env.vel
    end
 end
 
-local function RelNote(value)
+local function RelNote(value, add)
    return function(env)
       local offset = value
       if env.degrees then
          local scale_index = offset + env.shift
          offset = env.scale:at(scale_index)
       end
-      return env.root + offset, env.vel
+      return env.root + offset + add, env.vel
    end
 end
 
@@ -373,29 +373,31 @@ parse_note = function(s)
    if not m then
       parse_error(s, "expected note")
    end
-   local note_str = m[0]
+   local modifiers = m[2]
+   local add = 0
+   for i=1,#modifiers do
+      local mod = modifiers:sub(i,i)
+      if mod == "'" then
+         add = add + 1
+      elseif mod == "`" then
+         add = add - 1
+      elseif mod == "^" then
+         add = add + 12
+      elseif mod == "_" then
+         add = add - 12
+      end
+   end
+   local note_str = m[1]
    local first_char = note_str:sub(1,1)
    local note_offset = note_offsets[first_char]
    if note_offset then
       local c4 = 60
       local octave = tonumber(note_str:sub(2,2))
       note_offset = note_offset + (octave-4) * 12
-      local next_char = peek_char(s)
-      while true do
-         if next_char == "'" then
-            note_offset = note_offset + 1
-         elseif next_char == "`" then
-            note_offset = note_offset - 1
-         else
-            break
-         end
-         eat_char(s)
-         next_char = peek_char(s)
-      end
-      return AbsNote(c4 + note_offset)
+      return AbsNote(c4 + note_offset, add)
    else
       note_offset = tonumber(note_str)
-      return RelNote(note_offset)
+      return RelNote(note_offset, add)
    end
 end
 
