@@ -626,10 +626,8 @@ end
 
 parse_stream = function(s)
    local commands = {}
-   eat_whitespace_and_comments(s)
    while not s:eof() do
       table.insert(commands, parse_command(s))
-      eat_whitespace_and_comments(s)
    end
    return function(env)
       for _,cmd in ipairs(commands) do
@@ -667,7 +665,6 @@ local function run_repl(env)
    stdio:write("===[ Floyd v1.0.0 ]===\n")
    env.running = true
 
-   eat_whitespace_and_comments(stdio)
    while env.running and not stdio:eof() do
       tty_print("> ")
       local ok, cmd = pcall(parse_command, stdio)
@@ -677,7 +674,6 @@ local function run_repl(env)
          stdio:write(tostring(cmd))
          stdio:write("\n")
       end
-      eat_whitespace_and_comments(stdio)
    end
    tty_print("\n")
 end
