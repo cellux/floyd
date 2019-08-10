@@ -31,6 +31,15 @@
   (interactive)
   (floyd-send (buffer-string)))
 
+(defun floyd-send-line ()
+  (interactive)
+  (save-mark-and-excursion
+    (beginning-of-line)
+    (let ((beg (point)))
+      (forward-line 1)
+      (when (> (point) beg)
+        (floyd-send (buffer-substring beg (point)))))))
+
 (defun floyd-stop ()
   (interactive)
   (when (and floyd-process
@@ -90,6 +99,7 @@
     (define-key map (kbd "C-c C-s") 'floyd-start-or-stop)
     (define-key map (kbd "C-c C-a") 'floyd-send-buffer)
     (define-key map (kbd "C-c C-r") 'floyd-send-region)
+    (define-key map (kbd "C-c C-l") 'floyd-send-line)
     (define-key map (kbd "C-c C-c") 'floyd-send-eval-top-definition)
     map)
   "Keymap for `floyd-mode'.")
