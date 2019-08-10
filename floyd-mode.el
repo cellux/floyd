@@ -125,4 +125,4 @@
   (setq-local font-lock-defaults '(floyd-keywords))
   (setq-local defun-prompt-regexp "^let\\s-+\\(\\$\\w+\\)\\s-+"))
 
-(provide 'floyd)
+(provide 'floyd-mode)
