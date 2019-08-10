@@ -3,12 +3,18 @@
 
 (defun floyd-restart ()
   (interactive)
-  (when floyd-process
-    (floyd-stop))
-  (let ((process-connection-type nil))
-    (setq floyd-process (start-process "floyd" "*floyd*" "floyd"))
-    (setq mode-name (format "*%s*" floyd-mode-name))
-    (force-mode-line-update)))
+  (let ((process-name "floyd")
+        (buffer "*floyd*")
+        (program "floyd"))
+    (when floyd-process
+      (setq buffer (process-buffer floyd-process))
+      (floyd-stop)
+      (with-current-buffer buffer
+        (erase-buffer)))
+    (let ((process-connection-type nil))
+      (setq floyd-process (start-process process-name buffer program))
+      (setq mode-name (format "*%s*" floyd-mode-name))
+      (force-mode-line-update))))
 
 (defun floyd-send (string)
   (interactive "s")
