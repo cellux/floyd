@@ -4,7 +4,7 @@
 
 # sfload <slot> <path>
 #
-# load a soundfont into a slot
+# loads a soundfont into a slot
 #
 # <path> may be an absolute or relative path
 #
@@ -14,32 +14,32 @@ sfload 0 "FluidR3_GM.sf2"
 
 # channel <channel>
 #
-# switch to the specified channel
+# switches to the specified channel
 channel 0
 
 # sf <slot>
 #
-# switch to the specified soundfont on the current channel
+# switches to the specified soundfont on the current channel
 sf 0
 
 # bank <bank>
 #
-# switch to the specified bank on the current channel
+# switches to the specified bank on the current channel
 bank 0
 
 # program <program>
 #
-# select the specified program on the current channel
+# selects the specified program on the current channel
 program 0
 
 # bpm <bpm>
 #
-# set tempo in beats per minute
+# sets tempo in beats per minute
 bpm 120
 
 # dur <duration>
 #
-# set duration of played notes (in beats)
+# sets duration of played notes (in beats)
 #
 # the duration of a note is the time elapsed between a note-on
 # and the corresponding note-off
@@ -56,23 +56,18 @@ delta 1/4
 
 # .
 #
-# wait for the amount of time previously set with `delta`
+# waits for the amount of time previously set with `delta`
 .
-... # wait for 3 deltas
+... # waits for 3 deltas
 
 # wait <duration>
 #
-# wait for the given amount of beats
+# waits for the given amount of beats
 wait 1
-
-# root <notedesc>
-#
-# set the root note
-root c4
 
 # <notedesc>
 #
-# play the note(s) described by <notedesc> on the current channel
+# plays the note(s) described by <notedesc> on the current channel
 c4
 c4' # one semitone above c4 (each ' suffix adds one semitone)
 c4` # one semitone below c4 (each ` suffix subtracts one semitone)
@@ -80,68 +75,86 @@ c4^ # one octave above c4 (each ^ suffix adds 12 semitones)
 c4_ # one octave below c4 (each _ suffix subtracts 12 semitones)
 c4,e4,g4 # a chord
 
-# degrees
+# root <notedesc>
 #
-# change the meaning of numeric note descriptors:
-# they should signify the number of scale degrees from the root note
-degrees # (this is the default)
+# sets the root note
+root c4
 
-# semitones
+# <notedesc> may also be an integer specifying a distance from the
+# root note
+0 0,4,7 . 0 4 7 . -7 . 0 .
+
+# the distance may be expressed in scale degrees or semitones
 #
-# change the meaning of numeric note descriptors:
-# they should signify the number of semitones from the root note
+# you can switch between the two interpretations
+# with the commands `degrees` and `semitones`
+degrees # this is the default
 semitones
 
-# with numeric note descriptors, the c4,e4,g4 chord may be also
+# using numeric note descriptors, the c4,e4,g4 chord can be also
 # expressed as a list of distances from the root note
-#
-# either in semitones
 semitones 0,4,7
-#
-# or degrees
 degrees 0,2,4
 
 # scale <steps>
 #
-# specify the scale as a series of semitone steps
+# defines the scale as a series of semitone steps
 scale 2212221 # major scale (default)
 scale 2122122 # minor scale
 
-# playing several notes in succession
-degrees
--2 0 2 . 0,2,4 # three separate notes, a rest, then a chord
-
-# vel <velocity>
-#
-# set note velocity
-vel 96
-vel 5- # set to 5 less than previous value
-v5-
-
-# when we play notes, we use a scale, a root note, a shift and a degree
-#
-# note = root + scale[shift + degree]
+# three separate notes, a rest, then a chord
+degrees -2 0 2 . 0,2,4
 
 # shift <value>
 #
-# shift every scale degree in note descriptors by <value>
-shift -5
+# shifts every scale degree in note descriptors by <value>
+#
+# can be used for musical modes (ionian, dorian, etc.)
+shift 0 -2 0 2
+shift -3 -2 0 2
+shift 0 -2 . .
 
-# define a named block of commands for later execution
+# when we play notes with numeric note descriptors in `degrees`
+# interpretation, we use a scale, a root note, a shift and a degree
+#
+# note = root + scale[shift + degree]
+#
+# (the scale wraps around as needed in both directions)
+
+# vel <velocity>
+#
+# sets note velocity
+vel 96
+
+# bpm, vel (v), dur (~), delta (>) and shift
+# accept a number with a + or - suffix
+#
+# such a suffix results in relative adjustment of the value
+vel 5- # set to 5 less than previous value
+v5+    # set to 5 more than previous value
+
+# let <name> <block>
+#
+# defines a named block of commands for later execution
+#
+# <name> must begin with $
 let $scale {
-  0 1 2 3 4 5 6
+  0 4 7 10 9 7 0
 }
 
 # <block>
 #
-# play a previously defined named block
+# plays a previously defined block
 $scale
-# play a block literal
+
+# <block literal>
+#
+# plays the commands inside {...}
 { 6 5 4 3 2 1 }
 
 # sched <block>
 #
-# schedule a block to be played in the background
+# plays a block in the background
 sched {
   ~1 >1/4
   sched $scale
@@ -154,3 +167,16 @@ sched {
 #
 # repeat a block the given number of times
 rep 4 { 0 2 4 5 3 -2 }
+
+# (...)
+#
+# defines a block which plays its commands in the parent environment
+#
+# contrast this with {...} which plays its commands in a new empty
+# environment linked to (inheriting from) its parent - this works
+# somewhat like prototypal inheritance in JavaScript
+{
+  let $v1 (v96)
+  let $v2 (v70)
+  $v1 3 $v2 1 $v2 2 $v1 0
+}
