@@ -170,8 +170,14 @@ local function eat_char(s)
    local ch = s:read_char()
 end
 
-local function eat_whitespace(s)
-   s:match("^\\s+")
+local function eat_whitespace_and_comments(s)
+   while true do
+      s:match("^\\s+")
+      if not s:match("^#.*?[\r\n]+") then
+         -- not a comment
+         break
+      end
+   end
 end
 
 local parse_error
@@ -181,14 +187,14 @@ local parse_block_name, parse_block
 local parse_command, parse_stream
 
 parse_error = function(s, err)
-   ef("parse error: %s\nat: '%s...'", err, s:readln())
+   ef("parse error: %s\nat: [%s]", err, s:readln())
 end
 
 local ratio_regex = re.compile("^(-?\\d+)/(\\d+)")
 local number_regex = re.compile("^(-?\\d+)(\\.\\d+)?")
 
 parse_number = function(s)
-   eat_whitespace(s)
+   eat_whitespace_and_comments(s)
    local m = s:match(ratio_regex)
    if m then
       return tonumber(m[1]) / tonumber(m[2])
@@ -203,7 +209,7 @@ end
 local string_regex = re.compile('^"([^"]*)"')
 
 parse_string = function(s)
-   eat_whitespace(s)
+   eat_whitespace_and_comments(s)
    local m = s:match(string_regex)
    if not m then
       parse_error(s, "expected string")
@@ -310,7 +316,7 @@ command_parsers['wait'] = function(s)
 end
 
 command_parsers['scale'] = function(s)
-   eat_whitespace(s)
+   eat_whitespace_and_comments(s)
    local m = s:match("^[0-9]+")
    if not m then
       parse_error(s, "expected scale steps")
@@ -368,7 +374,7 @@ local function RelNote(value, add)
 end
 
 parse_note = function(s)
-   eat_whitespace(s)
+   eat_whitespace_and_comments(s)
    local m = s:match(note_regex)
    if not m then
       parse_error(s, "expected note")
@@ -447,13 +453,13 @@ parse_cluster = function(s)
          if not env.audio_driver.playing then
             env.audio_driver:start()
          end
-         for _,f in ipairs(on) do
-            f()
+         for _,on_fn in ipairs(on) do
+            on_fn()
          end
          if dur_in_seconds then
             sched.sleep(dur_in_seconds)
-            for _,f in ipairs(off) do
-               f()
+            for _,off_fn in ipairs(off) do
+               off_fn()
             end
          end
       end)
@@ -473,10 +479,10 @@ parse_rests = function(s)
    end
 end
 
-local block_name_regex = re.compile("^\\$([a-zA-Z0-9_-]+)\\s+")
+local block_name_regex = re.compile("^\\$([a-zA-Z0-9:_-]+)")
 
 parse_block_name = function(s)
-   eat_whitespace(s)
+   eat_whitespace_and_comments(s)
    local m = s:match(block_name_regex)
    if not m then
       parse_error(s, "expected block name")
@@ -484,21 +490,48 @@ parse_block_name = function(s)
    return tostring(m[1])
 end
 
-local block_end_regex = re.compile("^\\s*\\}")
+local block_end_regexes = {
+   ['{'] = re.compile("^\\s*\\}"),
+   ['('] = re.compile("^\\s*\\)"),
+}
+
+local function clone_env(env)
+   return setmetatable({
+      blocks = setmetatable({}, { __index = env.blocks }),
+      threads = {},
+   }, { __index = env })
+end
 
 parse_block = function(s)
-   eat_whitespace(s)
+   eat_whitespace_and_comments(s)
    local next_char = peek_char(s)
-   if next_char == '{' then
+   if next_char == '{' or next_char == '(' then
       -- block definition
       eat_char(s)
       local commands = {}
+      local block_end_regex = block_end_regexes[tostring(next_char)]
+      assert(block_end_regex)
       while not s:match(block_end_regex) do
          table.insert(commands, parse_command(s))
+         eat_whitespace_and_comments(s)
       end
-      return function(env)
-         for _,cmd in ipairs(commands) do
-            cmd(env)
+      if next_char == '{' then
+         -- block with own subenv
+         return function(env)
+            local subenv = clone_env(env)
+            for _,cmd in ipairs(commands) do
+               cmd(subenv)
+            end
+            if #subenv.threads > 0 then
+               sched.join(subenv.threads)
+            end
+         end
+      elseif next_char == '(' then
+         -- block inheriting parent env
+         return function(env)
+            for _,cmd in ipairs(commands) do
+               cmd(env)
+            end
          end
       end
    elseif next_char == '$' then
@@ -541,13 +574,6 @@ local function make_initial_env()
    }
 end
 
-local function clone_env(env)
-   return setmetatable({
-      blocks = setmetatable({}, { __index = env.blocks }),
-      threads = {},
-   }, { __index = env })
-end
-
 command_parsers['rep'] = function(s)
    local count = parse_number(s)
    local block = parse_block(s)
@@ -561,19 +587,11 @@ end
 command_parsers['sched'] = function(s)
    local block = parse_block(s)
    return function(env)
-      local subenv = clone_env(env)
-      table.insert(env.threads, sched(function() block(subenv) end))
+      table.insert(env.threads, sched(function() block(env) end))
    end
 end
 
-command_parsers['join'] = function(s)
-   return function(env)
-      if #env.threads > 0 then
-         sched.join(env.threads)
-         env.threads = {}
-      end
-   end
-end
+command_parsers['+'] = command_parsers['sched']
 
 command_parsers['quit'] = function(s)
    return function(env)
@@ -581,10 +599,10 @@ command_parsers['quit'] = function(s)
    end
 end
 
-local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|dur|~|delta|>|wait|root|scale|semitones|degrees|vel|v|shift|let|rep|sched|join|quit)(?=(\\W|\\d))")
+local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|dur|~|delta|>|wait|root|scale|semitones|degrees|vel|v|shift|let|rep|sched|\\+|quit)(?=(\\W|\\d))")
 
 parse_command = function(s)
-   eat_whitespace(s)
+   eat_whitespace_and_comments(s)
    local m = s:match(command_regex)
    if m then
       local cmd = m[1]
@@ -600,31 +618,68 @@ parse_command = function(s)
    if next_char == '.' then
       return parse_rests(s)
    end
-   if next_char == '{' or next_char == '$' then
-      local block = parse_block(s)
-      return function(env)
-         local subenv = clone_env(env)
-         block(subenv)
-      end
-   end
-   if next_char == '#' then
-      s:match("^#.*?[\r\n]+")
-      return parse_command(s)
+   if next_char == '{' or next_char == '(' or next_char == '$' then
+      return parse_block(s)
    end
    parse_error(s, "syntax error")
 end
 
 parse_stream = function(s)
    local commands = {}
+   eat_whitespace_and_comments(s)
    while not s:eof() do
       table.insert(commands, parse_command(s))
-      eat_whitespace(s)
+      eat_whitespace_and_comments(s)
    end
    return function(env)
       for _,cmd in ipairs(commands) do
          cmd(env)
       end
    end
+end
+
+local function run_program(env, path)
+   if not fs.exists(path) then
+      ef("file not found: %s", path)
+   end
+   local program_text = fs.readfile(path)
+   local program_block = parse_stream(stream(program_text))
+   program_block(env)
+   local main_block = env.blocks['main']
+   if main_block then
+      main_block(env)
+   end
+end
+
+local function run_repl(env)
+   local stdin = stream(fs.fd(0))
+   local stdout = stream(fs.fd(1))
+   local stdio = stream.duplex(stdin, stdout)
+
+   local stdin_isatty = ffi.C.isatty(0) == 1
+
+   local function tty_print(msg)
+      if stdin_isatty then
+         stdio:write(msg)
+      end
+   end
+
+   stdio:write("===[ Floyd v1.0.0 ]===\n")
+   env.running = true
+
+   eat_whitespace_and_comments(stdio)
+   while env.running and not stdio:eof() do
+      tty_print("> ")
+      local ok, cmd = pcall(parse_command, stdio)
+      if ok then
+         cmd(env)
+      else
+         stdio:write(tostring(cmd))
+         stdio:write("\n")
+      end
+      eat_whitespace_and_comments(stdio)
+   end
+   tty_print("\n")
 end
 
 function M.main()
@@ -642,38 +697,9 @@ function M.main()
       env.synth = nil
    end)
    if arg[1] then
-      local path = arg[1]
-      if not fs.exists(path) then
-         ef("file not found: %s", path)
-      end
-      local program_text = fs.readfile(path)
-      local program_block = parse_stream(stream(program_text))
-      program_block(env)
-      local main_block = env.blocks['main']
-      if main_block then
-         main_block(env)
-      end
+      run_program(env, arg[1])
    else
-      local stdin_is_tty = ffi.C.isatty(0) == 1
-      local stdin = stream(fs.fd(0))
-      local stdout = stream(fs.fd(1))
-      local stdio = stream.duplex(stdin, stdout)
-      stdio:write("===[ Floyd v1.0.0 ]===\n")
-      env.running = true
-      while env.running and not stdio:eof() do
-         if stdin_is_tty then
-            stdio:write("> ")
-         end
-         local ok, cmd = pcall(parse_command, stdio)
-         if ok then
-            cmd(env)
-         else
-            stdio:write(tostring(cmd))
-            stdio:write("\n")
-         end
-         eat_whitespace(stdio)
-      end
-      stdio:write("\n")
+      run_repl(env)
    end
 end
 
