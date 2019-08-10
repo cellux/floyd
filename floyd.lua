@@ -174,6 +174,10 @@ local function eat_whitespace(s)
    s:match("^\\s+")
 end
 
+local function eat_comments(s)
+   s:match("^#.*?[\r\n]+")
+end
+
 local parse_error
 local parse_number, parse_string
 local parse_note, parse_cluster, parse_rests
@@ -181,7 +185,7 @@ local parse_block_name, parse_block
 local parse_command, parse_stream
 
 parse_error = function(s, err)
-   ef("parse error: %s\nat: '%s...'", err, s:readln())
+   ef("parse error: %s\nat: [%s]", err, s:readln())
 end
 
 local ratio_regex = re.compile("^(-?\\d+)/(\\d+)")
@@ -338,7 +342,7 @@ command_parsers['degrees'] = function(s)
    end
 end
 
-local note_regex = re.compile("^(-?\\d+|[cdefgab][0-9])")
+local note_regex = re.compile("^(-?\\d+|[cdefgab][0-9])(['`_^]*)")
 
 local note_offsets = {
    c = 0,
@@ -350,20 +354,20 @@ local note_offsets = {
    b = 11,
 }
 
-local function AbsNote(value)
+local function AbsNote(value, add)
    return function(env)
-      return value, env.vel
+      return value + add, env.vel
    end
 end
 
-local function RelNote(value)
+local function RelNote(value, add)
    return function(env)
       local offset = value
       if env.degrees then
          local scale_index = offset + env.shift
          offset = env.scale:at(scale_index)
       end
-      return env.root + offset, env.vel
+      return env.root + offset + add, env.vel
    end
 end
 
@@ -373,29 +377,31 @@ parse_note = function(s)
    if not m then
       parse_error(s, "expected note")
    end
-   local note_str = m[0]
+   local modifiers = m[2]
+   local add = 0
+   for i=1,#modifiers do
+      local mod = modifiers:sub(i,i)
+      if mod == "'" then
+         add = add + 1
+      elseif mod == "`" then
+         add = add - 1
+      elseif mod == "^" then
+         add = add + 12
+      elseif mod == "_" then
+         add = add - 12
+      end
+   end
+   local note_str = m[1]
    local first_char = note_str:sub(1,1)
    local note_offset = note_offsets[first_char]
    if note_offset then
       local c4 = 60
       local octave = tonumber(note_str:sub(2,2))
       note_offset = note_offset + (octave-4) * 12
-      local next_char = peek_char(s)
-      while true do
-         if next_char == "'" then
-            note_offset = note_offset + 1
-         elseif next_char == "`" then
-            note_offset = note_offset - 1
-         else
-            break
-         end
-         eat_char(s)
-         next_char = peek_char(s)
-      end
-      return AbsNote(c4 + note_offset)
+      return AbsNote(c4 + note_offset, add)
    else
       note_offset = tonumber(note_str)
-      return RelNote(note_offset)
+      return RelNote(note_offset, add)
    end
 end
 
@@ -445,13 +451,13 @@ parse_cluster = function(s)
          if not env.audio_driver.playing then
             env.audio_driver:start()
          end
-         for _,f in ipairs(on) do
-            f()
+         for _,on_fn in ipairs(on) do
+            on_fn()
          end
          if dur_in_seconds then
             sched.sleep(dur_in_seconds)
-            for _,f in ipairs(off) do
-               f()
+            for _,off_fn in ipairs(off) do
+               off_fn()
             end
          end
       end)
@@ -471,7 +477,7 @@ parse_rests = function(s)
    end
 end
 
-local block_name_regex = re.compile("^\\$([a-zA-Z0-9_-]+)\\s+")
+local block_name_regex = re.compile("^\\$([a-zA-Z0-9:_-]+)")
 
 parse_block_name = function(s)
    eat_whitespace(s)
@@ -482,21 +488,45 @@ parse_block_name = function(s)
    return tostring(m[1])
 end
 
-local block_end_regex = re.compile("^\\s*\\}")
+local block_end_regexes = {
+   ['{'] = re.compile("^\\s*\\}"),
+   ['('] = re.compile("^\\s*\\)"),
+}
+
+local function clone_env(env)
+   return setmetatable({
+      blocks = setmetatable({}, { __index = env.blocks }),
+      threads = {},
+   }, { __index = env })
+end
 
 parse_block = function(s)
    eat_whitespace(s)
    local next_char = peek_char(s)
-   if next_char == '{' then
+   if next_char == '{' or next_char == '(' then
       -- block definition
       eat_char(s)
       local commands = {}
+      local block_end_regex = block_end_regexes[tostring(next_char)]
+      assert(block_end_regex)
       while not s:match(block_end_regex) do
          table.insert(commands, parse_command(s))
       end
-      return function(env)
-         for _,cmd in ipairs(commands) do
-            cmd(env)
+      if next_char == '{' then
+         return function(env)
+            local subenv = clone_env(env)
+            for _,cmd in ipairs(commands) do
+               cmd(subenv)
+            end
+            if #subenv.threads > 0 then
+               sched.join(subenv.threads)
+            end
+         end
+      else -- if next_char == '(' then
+         return function(env)
+            for _,cmd in ipairs(commands) do
+               cmd(env)
+            end
          end
       end
    elseif next_char == '$' then
@@ -539,13 +569,6 @@ local function make_initial_env()
    }
 end
 
-local function clone_env(env)
-   return setmetatable({
-      blocks = setmetatable({}, { __index = env.blocks }),
-      threads = {},
-   }, { __index = env })
-end
-
 command_parsers['rep'] = function(s)
    local count = parse_number(s)
    local block = parse_block(s)
@@ -559,19 +582,11 @@ end
 command_parsers['sched'] = function(s)
    local block = parse_block(s)
    return function(env)
-      local subenv = clone_env(env)
-      table.insert(env.threads, sched(function() block(subenv) end))
+      table.insert(env.threads, sched(function() block(env) end))
    end
 end
 
-command_parsers['join'] = function(s)
-   return function(env)
-      if #env.threads > 0 then
-         sched.join(env.threads)
-         env.threads = {}
-      end
-   end
-end
+command_parsers['+'] = command_parsers['sched']
 
 command_parsers['quit'] = function(s)
    return function(env)
@@ -579,10 +594,17 @@ command_parsers['quit'] = function(s)
    end
 end
 
-local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|dur|~|delta|>|wait|root|scale|semitones|degrees|vel|v|shift|let|rep|sched|join|quit)(?=(\\W|\\d))")
+local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|dur|~|delta|>|wait|root|scale|semitones|degrees|vel|v|shift|let|rep|sched|\\+|quit)(?=(\\W|\\d))")
 
 parse_command = function(s)
-   eat_whitespace(s)
+   while true do
+      eat_whitespace(s)
+      local next_char = peek_char(s)
+      if next_char ~= '#' then
+         break
+      end
+      eat_comments(s)
+   end
    local m = s:match(command_regex)
    if m then
       local cmd = m[1]
@@ -598,16 +620,11 @@ parse_command = function(s)
    if next_char == '.' then
       return parse_rests(s)
    end
-   if next_char == '{' or next_char == '$' then
-      local block = parse_block(s)
-      return function(env)
-         local subenv = clone_env(env)
-         block(subenv)
-      end
+   if next_char == '{' or next_char == '(' or next_char == '$' then
+      return parse_block(s)
    end
-   if next_char == '#' then
-      s:match("^#.*?[\r\n]+")
-      return parse_command(s)
+   if next_char == '' and s:eof() then
+      return command_parsers['quit'](s)
    end
    parse_error(s, "syntax error")
 end
@@ -656,12 +673,15 @@ function M.main()
       local stdin = stream(fs.fd(0))
       local stdout = stream(fs.fd(1))
       local stdio = stream.duplex(stdin, stdout)
+      local function pr(msg)
+         if stdin_is_tty then
+            stdio:write(msg)
+         end
+      end
       stdio:write("===[ Floyd v1.0.0 ]===\n")
       env.running = true
       while env.running and not stdio:eof() do
-         if stdin_is_tty then
-            stdio:write("> ")
-         end
+         pr("> ")
          local ok, cmd = pcall(parse_command, stdio)
          if ok then
             cmd(env)
@@ -671,7 +691,7 @@ function M.main()
          end
          eat_whitespace(stdio)
       end
-      stdio:write("\n")
+      pr("\n")
    end
 end
 

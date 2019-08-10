@@ -74,24 +74,26 @@ root c4
 #
 # play the note(s) described by <notedesc> on the current channel
 c4
-c4' # one semitone above c4
-c4'' # two semitones above c4
-c4` # one semitone below c4
-c4`` # two semitones below c4
+c4' # one semitone above c4 (each ' suffix adds one semitone)
+c4` # one semitone below c4 (each ` suffix subtracts one semitone)
+c4^ # one octave above c4 (each ^ suffix adds 12 semitones)
+c4_ # one octave below c4 (each _ suffix subtracts 12 semitones)
 c4,e4,g4 # a chord
 
 # degrees
 #
-# numeric note descriptors signify the number of scale degrees
-degrees # (default)
+# change the meaning of numeric note descriptors:
+# they should signify the number of scale degrees from the root note
+degrees # (this is the default)
 
 # semitones
 #
-# numeric note descriptors signify the number of semitone steps
+# change the meaning of numeric note descriptors:
+# they should signify the number of semitones from the root note
 semitones
 
-# the c4,e4,g4 chord may be also expressed
-# as a list of distances from the root note
+# with numeric note descriptors, the c4,e4,g4 chord may be also
+# expressed as a list of distances from the root note
 #
 # either in semitones
 semitones 0,4,7
@@ -125,21 +127,27 @@ v5-
 # shift every scale degree in note descriptors by <value>
 shift -5
 
-# define a block of commands for later execution
+# define a named block of commands for later execution
 let $scale {
   0 1 2 3 4 5 6
 }
 
-# play a previously defined block
+# <block>
+#
+# play a previously defined named block
 $scale
+# play a block literal
+{ 6 5 4 3 2 1 }
 
+# sched <block>
+#
 # schedule a block to be played in the background
 sched {
   ~1 >1/4
   sched $scale
   sched { . $scale }
-  # wait until all blocks scheduled by the current block finish
-  join
+  # { ... } blocks do not return until all
+  # scheduled sub-blocks finish execution
 }
 
 # rep <count> <block>

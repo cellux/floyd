@@ -3,12 +3,18 @@
 
 (defun floyd-restart ()
   (interactive)
-  (when floyd-process
-    (floyd-stop))
-  (let ((process-connection-type nil))
-    (setq floyd-process (start-process "floyd" "*floyd*" "floyd"))
-    (setq mode-name (format "*%s*" floyd-mode-name))
-    (force-mode-line-update)))
+  (let ((process-name "floyd")
+        (buffer "*floyd*")
+        (program "floyd"))
+    (when floyd-process
+      (setq buffer (process-buffer floyd-process))
+      (floyd-stop)
+      (with-current-buffer buffer
+        (erase-buffer)))
+    (let ((process-connection-type nil))
+      (setq floyd-process (start-process process-name buffer program))
+      (setq mode-name (format "*%s*" floyd-mode-name))
+      (force-mode-line-update))))
 
 (defun floyd-send (string)
   (interactive "s")
@@ -30,6 +36,15 @@
 (defun floyd-send-buffer ()
   (interactive)
   (floyd-send (buffer-string)))
+
+(defun floyd-send-line ()
+  (interactive)
+  (save-mark-and-excursion
+    (beginning-of-line)
+    (let ((beg (point)))
+      (forward-line 1)
+      (when (> (point) beg)
+        (floyd-send (buffer-substring beg (point)))))))
 
 (defun floyd-stop ()
   (interactive)
@@ -80,6 +95,7 @@
     (modify-syntax-entry ?} "){" st)
     (modify-syntax-entry ?~ "_" st)
     (modify-syntax-entry ?> "_" st)
+    (modify-syntax-entry ?+ "_" st)
     (modify-syntax-entry ?' "_" st)
     (modify-syntax-entry ?` "_" st)
     st)
@@ -90,6 +106,7 @@
     (define-key map (kbd "C-c C-s") 'floyd-start-or-stop)
     (define-key map (kbd "C-c C-a") 'floyd-send-buffer)
     (define-key map (kbd "C-c C-r") 'floyd-send-region)
+    (define-key map (kbd "C-c C-l") 'floyd-send-line)
     (define-key map (kbd "C-c C-c") 'floyd-send-eval-top-definition)
     map)
   "Keymap for `floyd-mode'.")
@@ -100,7 +117,7 @@
     ("-?[0-9]+/[0-9]+\\_>" . font-lock-constant-face)
     ("\\_<[cdefgab][0-9]['`]\\_>" . font-lock-constant-face)
     ,(regexp-opt '("sfload" "channel" "sf" "bank" "program" "bpm" "dur" "delta" "wait" "root" "scale" "semitones" "degrees" "vel" "shift" "let" "rep" "sched" "join") 'symbols)
-    "\\_<[~>v]"))
+    "\\_<[~>+v]"))
 
 (define-derived-mode floyd-mode
   prog-mode floyd-mode-name
