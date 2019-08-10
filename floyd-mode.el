@@ -112,12 +112,12 @@
   "Keymap for `floyd-mode'.")
 
 (defvar floyd-keywords
-  `(("\\_<\\$[a-zA-Z0-9_-]+\\_>" . font-lock-variable-name-face)
-    ("-?[0-9]+\\(\\.[0-9]+\\)?[+-]?\\_>" . font-lock-constant-face)
+  `(("\\_<\\$[a-zA-Z0-9:_-]+\\_>" . font-lock-variable-name-face)
+    ("-?[0-9]+\\(\\.[0-9]+\\)?['`^_+-]?\\_>" . font-lock-constant-face)
     ("-?[0-9]+/[0-9]+\\_>" . font-lock-constant-face)
-    ("\\_<[cdefgab][0-9]['`]\\_>" . font-lock-constant-face)
-    ,(regexp-opt '("sfload" "channel" "sf" "bank" "program" "bpm" "dur" "delta" "wait" "root" "scale" "semitones" "degrees" "vel" "shift" "let" "rep" "sched" "join") 'symbols)
-    "\\_<[~>+v]"))
+    ("\\_<[cdefgab][0-9]['`^_]\\_>" . font-lock-constant-face)
+    ,(regexp-opt '("sfload" "channel" "sf" "bank" "program" "bpm" "dur" "delta" "wait" "root" "scale" "semitones" "degrees" "vel" "shift" "let" "rep" "sched" "quit") 'symbols)
+    "\\_<[~>v+]"))
 
 (define-derived-mode floyd-mode
   prog-mode floyd-mode-name
