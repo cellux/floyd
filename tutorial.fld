@@ -4,18 +4,21 @@
 
 # sfload <slot> <path>
 #
-# loads a soundfont into a slot
+# loads a soundfont into the given slot
 #
+# <slot> is an integer
 # <path> may be an absolute or relative path
 #
-# if relative, it will be searched in the current directory and
-# in the directories listed in the SFPATH array
+# if <path> is relative, it will be searched in the current directory
+# and in the directories listed in the SFPATH array
 sfload 0 "FluidR3_GM.sf2"
 
 # channel <channel>
+# C <channel>
 #
 # switches to the specified channel
 channel 0
+C0
 
 # sf <slot>
 #
@@ -40,18 +43,18 @@ bpm 120
 # tick <beat-multiplier>
 # t <beat-multiplier>
 #
-# sets the duration of one tick
-t1/2 # one tick is 1/2 beat
+# sets the duration of one tick as a multiple of the duration of one beat
+t1/2 # one tick is 1/2 beats
 t3   # one tick is 3 beats
 t1   # this is the default
 
 # dur <duration>
 # ~ <duration>
 #
-# sets duration of played notes (in ticks)
+# sets the duration of played notes in ticks
 #
-# the duration of a note is the time elapsed between a note-on
-# and the corresponding note-off
+# the duration is the time elapsed between a note-on and the
+# corresponding note-off
 #
 # if duration is set to zero, only note-on events are sent
 dur 1
@@ -60,7 +63,9 @@ dur 1
 # delta <duration>
 # > <duration>
 #
-# how much to wait between two successive notes (in ticks)
+# sets how much to wait between two successive notes (in ticks)
+#
+# i.e. the time between two successive note-on events
 delta 1/4
 >1/4
 
@@ -68,13 +73,14 @@ delta 1/4
 #
 # waits for the duration previously set with `delta`
 .
-... # waits for 3 deltas
+... # waits for 3 times delta
 
 # wait <duration>
 # w <duration>
 #
 # waits for the given amount of ticks
 wait 1
+w1/8
 
 # <notedesc>
 #
@@ -91,18 +97,16 @@ c4,e4,g4 # a chord
 # sets the root note
 root c4
 
-# <notedesc> may also be an integer specifying a distance from the
-# root note
+# <notedesc> may be an integer specifying a distance from the root note
 0 0,4,7 . 0 4 7 . -7 . 0 .
 
-# the distance may be expressed in scale degrees or semitones
+# the distance from the root note may be expressed in scale degrees or semitones
 #
-# you can switch between the two interpretations
-# with the commands `degrees` and `semitones`
+# you can switch between the two interpretations via `degrees` and `semitones`
 degrees # this is the default
 semitones
 
-# using numeric note descriptors, the c4,e4,g4 chord can be also
+# using numeric note descriptors, the c4,e4,g4 chord may be also
 # expressed as a list of distances from the root note
 semitones 0,4,7
 degrees 0,2,4
@@ -121,17 +125,17 @@ degrees -2 0 2 . 0,2,4
 #
 # shifts every scale degree in note descriptors by <value>
 #
-# can be used for musical modes (ionian, dorian, etc.)
+# this can be used to access musical modes (ionian, dorian, etc.)
 shift 0 -2 0 2
 @-3 -2 0 2
 @0 -2 . .
 
-# when we play notes with numeric note descriptors in `degrees`
-# interpretation, we use a scale, a root note, a shift and a degree
+# in `degrees` mode, the note is calculated from the current scale,
+# root note, shift and the degree specified by the note descriptor:
 #
 # note = root + scale[shift + degree]
 #
-# (the scale wraps around as needed in both directions)
+# (the scale wraps around as needed, in both directions)
 
 # vel <velocity>
 # v <velocity>
@@ -146,50 +150,71 @@ vel 96
 vel 5- # set to 5 less than previous value
 v5+    # set to 5 more than previous value
 
-# let <name> <block>
+# {...}
+#
+# plays all commands inside {...} in a new child environment
+#
+# if a command listed inside {...} changes something in the
+# environment (e.g. velocity, current channel, tempo, whatever), those
+# changes will not affect the parent environment.
+#
+# if a command looks up a value (e.g. the current value for `dur`),
+# the lookup starts in the current environment. if the value is not
+# found there, the search continues in the parent, in the parent's
+# parent and so on until the value is found (or not).
+#
+# on the other hand, if a value is set (for example the current
+# channel is assigned via the `channel` command), that change only
+# affects the child environment and any children blocks it spawns
+# after the value had been set.
+{ 6 5 4 3 2 1 }
+
+# let <blockname> <block>
 #
 # defines a named block of commands for later execution
 #
-# <name> must begin with $
+# <blockname> must begin with $
 let $scale {
   0 4 7 10 9 7 0
 }
 
-# <block>
+# <blockname>
 #
-# plays a previously defined block
+# plays back the commands in a block previously defined via `let`
 $scale
-
-# <block literal>
-#
-# plays the commands inside {...}
-{ 6 5 4 3 2 1 }
-
-# sched <block>
-#
-# plays a block in the background
-sched {
-  ~1 >1/4
-  sched $scale
-  sched { . $scale }
-  # { ... } blocks do not return until all
-  # scheduled sub-blocks finish execution
-}
-
-# rep <count> <block>
-#
-# repeat a block the given number of times
-rep 4 { 0 2 4 5 3 -2 }
 
 # (...)
 #
-# defines a block which plays its commands in the parent environment
+# plays all commands inside (...) in the current environment
 #
 # contrast this with {...} which plays its commands in a new empty
-# environment linked to (inheriting from) its parent - this works
-# somewhat like prototypal inheritance in JavaScript
+# environment linked to (inheriting from) its parent
+#
+# changes made by commands inside (...) remain in effect after the block ends
 {
   let $v1 (v96)
   let $v2 (v70)
   $v1 3 $v2 1 $v2 2 $v1 0
 }
+
+# sched <block>
+# + <block>
+#
+# plays <block> in the background
+#
+# <block> may be a block name or a block expression
+sched {
+  ~1 >1/4
+  + $scale
+  + { . $scale }
+}
+
+# {...} blocks do not return until all blocks scheduled inside them
+# finish execution
+{ +{0 2 4 7 6 5 3 1} +{@-14 ~0 >1 0 6 } }
+{ 7 4 2 -2 0 ... }
+
+# rep <count> <block>
+#
+# repeats a block the given number of times
+{ rep 2 { 0 2 4 5 3 -2 } @-3 ~0 0,3,7 }
