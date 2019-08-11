@@ -171,10 +171,10 @@ local function eat_char(s)
 end
 
 local function eat_whitespace_and_comments(s)
-   while true do
-      s:match("^\\s+")
-      if not s:match("^#.*?[\r\n]+") then
-         -- not a comment
+   while not s:eof() do
+      local whitespace = s:match("^\\s+")
+      local comments = s:match("^#.*?[\r\n]+")
+      if not (whitespace or comments) then
          break
       end
    end
