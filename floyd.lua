@@ -307,6 +307,7 @@ command_parsers['shift'] = make_number_adjuster("shift")
 command_parsers['v'] = command_parsers['vel']
 command_parsers['~'] = command_parsers['dur']
 command_parsers['>'] = command_parsers['delta']
+command_parsers['@'] = command_parsers['shift']
 
 command_parsers['wait'] = function(s)
    local seconds = parse_number(s)
@@ -599,7 +600,7 @@ command_parsers['quit'] = function(s)
    end
 end
 
-local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|dur|~|delta|>|wait|root|scale|semitones|degrees|vel|v|shift|let|rep|sched|\\+|quit)(?=(\\W|\\d))")
+local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|dur|~|delta|>|wait|root|scale|semitones|degrees|vel|v|shift|@|let|rep|sched|\\+|quit)(?=(\\W|\\d))")
 
 parse_command = function(s)
    eat_whitespace_and_comments(s)

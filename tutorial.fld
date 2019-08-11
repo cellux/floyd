@@ -38,6 +38,7 @@ program 0
 bpm 120
 
 # dur <duration>
+# ~ <duration>
 #
 # sets duration of played notes (in beats)
 #
@@ -49,6 +50,7 @@ dur 1
 ~1
 
 # delta <duration>
+# > <duration>
 #
 # how much to wait between two successive notes (in beats)
 delta 1/4
@@ -106,13 +108,14 @@ scale 2122122 # minor scale
 degrees -2 0 2 . 0,2,4
 
 # shift <value>
+# @ <value>
 #
 # shifts every scale degree in note descriptors by <value>
 #
 # can be used for musical modes (ionian, dorian, etc.)
 shift 0 -2 0 2
-shift -3 -2 0 2
-shift 0 -2 . .
+@-3 -2 0 2
+@0 -2 . .
 
 # when we play notes with numeric note descriptors in `degrees`
 # interpretation, we use a scale, a root note, a shift and a degree
@@ -122,11 +125,12 @@ shift 0 -2 . .
 # (the scale wraps around as needed in both directions)
 
 # vel <velocity>
+# v <velocity>
 #
 # sets note velocity
 vel 96
 
-# bpm, vel (v), dur (~), delta (>) and shift
+# bpm, vel (v), dur (~), delta (>) and shift (@)
 # accept a number with a + or - suffix
 #
 # such a suffix results in relative adjustment of the value
