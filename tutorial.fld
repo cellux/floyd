@@ -38,11 +38,12 @@ program 0
 bpm 120
 
 # tick <beat-multiplier>
+# t <beat-multiplier>
 #
 # sets the duration of one tick
-tick 1/2 # one tick is 1/2 beat
-tick 3   # one tick is 3 beats
-tick 1   # this is the default
+t1/2 # one tick is 1/2 beat
+t3   # one tick is 3 beats
+t1   # this is the default
 
 # dur <duration>
 # ~ <duration>
@@ -70,6 +71,7 @@ delta 1/4
 ... # waits for 3 deltas
 
 # wait <duration>
+# w <duration>
 #
 # waits for the given amount of ticks
 wait 1

@@ -305,6 +305,7 @@ command_parsers['dur'] = make_number_adjuster("dur", 0)
 command_parsers['delta'] = make_number_adjuster("delta", 1/256)
 command_parsers['shift'] = make_number_adjuster("shift")
 
+command_parsers['t'] = command_parsers['tick']
 command_parsers['v'] = command_parsers['vel']
 command_parsers['~'] = command_parsers['dur']
 command_parsers['>'] = command_parsers['delta']
@@ -323,6 +324,8 @@ command_parsers['wait'] = function(s)
       sched.sleep(seconds)
    end
 end
+
+command_parsers['w'] = command_parsers['wait']
 
 command_parsers['scale'] = function(s)
    eat_whitespace_and_comments(s)
@@ -603,7 +606,7 @@ command_parsers['quit'] = function(s)
    end
 end
 
-local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|tick|dur|~|delta|>|wait|root|scale|semitones|degrees|vel|v|shift|@|let|rep|sched|\\+|quit)(?=(\\W|\\d))")
+local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|tick|t|dur|~|delta|>|wait|w|root|scale|semitones|degrees|vel|v|shift|@|let|rep|sched|\\+|quit)(?=(\\W|\\d))")
 
 parse_command = function(s)
    eat_whitespace_and_comments(s)
