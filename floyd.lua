@@ -299,6 +299,7 @@ local function make_number_adjuster(name, min, max)
 end
 
 command_parsers['bpm'] = make_number_adjuster("bpm", 1)
+command_parsers['tick'] = make_number_adjuster("tick", 1/256)
 command_parsers['vel'] = make_number_adjuster("vel", 0, 127)
 command_parsers['dur'] = make_number_adjuster("dur", 0)
 command_parsers['delta'] = make_number_adjuster("delta", 1/256)
@@ -309,9 +310,16 @@ command_parsers['~'] = command_parsers['dur']
 command_parsers['>'] = command_parsers['delta']
 command_parsers['@'] = command_parsers['shift']
 
+local function t2s(env, ticks)
+   local beats_per_second = env.bpm / 60
+   local seconds_per_beat = 1 / beats_per_second
+   return ticks * env.tick * seconds_per_beat
+end
+
 command_parsers['wait'] = function(s)
-   local seconds = parse_number(s)
+   local ticks = parse_number(s)
    return function(env)
+      local seconds = t2s(env, ticks)
       sched.sleep(seconds)
    end
 end
@@ -416,12 +424,6 @@ command_parsers['root'] = function(s)
    end
 end
 
-local function b2s(beats, bpm)
-   local beats_per_second = bpm / 60
-   local seconds_per_beat = 1 / beats_per_second
-   return beats * seconds_per_beat
-end
-
 parse_cluster = function(s)
    local notes = {}
    table.insert(notes, parse_note(s))
@@ -434,9 +436,9 @@ parse_cluster = function(s)
       local channel = env.channel
       local bpm = env.bpm
       local dur = env.dur
-      local dur_in_seconds = dur and dur > 0 and b2s(dur, bpm)
+      local dur_in_seconds = dur and dur > 0 and t2s(env, dur)
       local delta = env.delta
-      local delta_in_seconds = b2s(delta, bpm)
+      local delta_in_seconds = t2s(env, delta)
       local on = {}
       local off = {}
       for i=1,#notes do
@@ -475,7 +477,7 @@ parse_rests = function(s)
       count = count + 1
    end
    return function(env)
-      local delta_in_seconds = b2s(env.delta * count, env.bpm)
+      local delta_in_seconds = t2s(env, env.delta * count)
       sched.sleep(delta_in_seconds)
    end
 end
@@ -569,6 +571,7 @@ local function make_initial_env()
       shift = 0,
       bpm = 120,
       dur = 1,
+      tick = 1,
       delta = 1,
       root = 60,
       vel = 96,
@@ -600,7 +603,7 @@ command_parsers['quit'] = function(s)
    end
 end
 
-local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|dur|~|delta|>|wait|root|scale|semitones|degrees|vel|v|shift|@|let|rep|sched|\\+|quit)(?=(\\W|\\d))")
+local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|tick|dur|~|delta|>|wait|root|scale|semitones|degrees|vel|v|shift|@|let|rep|sched|\\+|quit)(?=(\\W|\\d))")
 
 parse_command = function(s)
    eat_whitespace_and_comments(s)

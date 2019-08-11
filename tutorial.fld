@@ -37,10 +37,17 @@ program 0
 # sets tempo in beats per minute
 bpm 120
 
+# tick <beat-multiplier>
+#
+# sets the duration of one tick
+tick 1/2 # one tick is 1/2 beat
+tick 3   # one tick is 3 beats
+tick 1   # this is the default
+
 # dur <duration>
 # ~ <duration>
 #
-# sets duration of played notes (in beats)
+# sets duration of played notes (in ticks)
 #
 # the duration of a note is the time elapsed between a note-on
 # and the corresponding note-off
@@ -52,19 +59,19 @@ dur 1
 # delta <duration>
 # > <duration>
 #
-# how much to wait between two successive notes (in beats)
+# how much to wait between two successive notes (in ticks)
 delta 1/4
 >1/4
 
 # .
 #
-# waits for the amount of time previously set with `delta`
+# waits for the duration previously set with `delta`
 .
 ... # waits for 3 deltas
 
 # wait <duration>
 #
-# waits for the given amount of beats
+# waits for the given amount of ticks
 wait 1
 
 # <notedesc>
