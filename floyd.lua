@@ -247,6 +247,8 @@ command_parsers['channel'] = function(s)
    end
 end
 
+command_parsers['C'] = command_parsers['channel']
+
 command_parsers['sf'] = function(s)
    local slot = parse_number(s)
    return function(env)
@@ -606,7 +608,7 @@ command_parsers['quit'] = function(s)
    end
 end
 
-local command_regex = re.compile("^(sfload|channel|sf|bank|program|bpm|tick|t|dur|~|delta|>|wait|w|root|scale|semitones|degrees|vel|v|shift|@|let|rep|sched|\\+|quit)(?=(\\W|\\d))")
+local command_regex = re.compile("^(sfload|channel|C|sf|bank|program|bpm|tick|t|dur|~|delta|>|wait|w|root|scale|semitones|degrees|vel|v|shift|@|let|rep|sched|\\+|quit)(?=(\\W|\\d))")
 
 parse_command = function(s)
    eat_whitespace_and_comments(s)

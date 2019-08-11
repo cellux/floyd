@@ -117,7 +117,7 @@
     ("-?[0-9]+/[0-9]+\\_>" . font-lock-constant-face)
     ("\\_<[cdefgab][0-9]['`^_]\\_>" . font-lock-constant-face)
     ,(regexp-opt '("sfload" "channel" "sf" "bank" "program" "bpm" "dur" "delta" "wait" "root" "scale" "semitones" "degrees" "vel" "shift" "let" "rep" "sched" "quit") 'symbols)
-    "\\_<[~>v+@wt]"))
+    "\\_<[~>v+@wtC]"))
 
 (define-derived-mode floyd-mode
   prog-mode floyd-mode-name
